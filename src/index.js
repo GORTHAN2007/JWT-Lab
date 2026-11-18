@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('./db');
+const requireAuth = require('./authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -130,6 +131,53 @@ app.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// 4. Get User Profile - GET /me
+app.get('/me', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Return user's ID, email, name, and account creation date (exclude password)
+    return res.status(200).json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt
+    });
+  } catch (error) {
+    console.error('Profile error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// 5. User Dashboard - GET /dashboard
+app.get('/dashboard', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Return welcome message using user's name or email if name unavailable
+    const displayName = user.name ? user.name : user.email;
+
+    return res.status(200).json({
+      message: `Welcome, ${displayName}!`
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
