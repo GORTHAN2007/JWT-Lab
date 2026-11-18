@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Helper function to generate JWT
 function generateToken(user) {
   const jti = crypto.randomUUID();
   return jwt.sign(
@@ -27,25 +26,20 @@ function generateToken(user) {
   );
 }
 
-// 1. User Registration - POST /signup
 app.post('/signup', async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
-    // Check if email and password are provided as strings
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ message: 'Email and password are required and must be strings' });
     }
 
-    // Ensure password contains at least 6 characters
     if (password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
 
-    // Normalize email (trim spaces and convert to lowercase)
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail }
     });
@@ -54,10 +48,8 @@ app.post('/signup', async (req, res) => {
       return res.status(409).json({ message: 'Email is already registered' });
     }
 
-    // Hash password with bcrypt (10 salt rounds)
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user in database
     const newUser = await prisma.user.create({
       data: {
         email: normalizedEmail,
@@ -66,10 +58,8 @@ app.post('/signup', async (req, res) => {
       }
     });
 
-    // Generate JWT
     const token = generateToken(newUser);
 
-    // Return user details and JWT
     return res.status(201).json({
       message: 'Registration successful',
       user: {
@@ -86,39 +76,28 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-// 2. User Login - POST /login
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Validate that both fields are provided as strings
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ message: 'Email and password are required and must be strings' });
     }
 
-    // Normalize email before searching database
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Find user using their email
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail }
     });
 
-    // Return same error message for unknown email and incorrect password
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Compare entered password with stored hashed password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
-
-    // If authentication succeeds, generate JWT
     const token = generateToken(user);
-
-    // Return basic details and JWT
     return res.status(200).json({
       message: 'Login successful',
       user: {
@@ -134,8 +113,6 @@ app.post('/login', async (req, res) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 });
-
-// 4. Get User Profile - GET /me
 app.get('/me', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -145,8 +122,6 @@ app.get('/me', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Return user's ID, email, name, and account creation date (exclude password)
     return res.status(200).json({
       id: user.id,
       email: user.email,
@@ -159,7 +134,6 @@ app.get('/me', requireAuth, async (req, res) => {
   }
 });
 
-// 5. User Dashboard - GET /dashboard
 app.get('/dashboard', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
@@ -169,8 +143,6 @@ app.get('/dashboard', requireAuth, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Return welcome message using user's name or email if name unavailable
     const displayName = user.name ? user.name : user.email;
 
     return res.status(200).json({
