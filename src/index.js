@@ -85,6 +85,55 @@ app.post('/signup', async (req, res) => {
   }
 });
 
+// 2. User Login - POST /login
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate that both fields are provided as strings
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Email and password are required and must be strings' });
+    }
+
+    // Normalize email before searching database
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Find user using their email
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail }
+    });
+
+    // Return same error message for unknown email and incorrect password
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // Compare entered password with stored hashed password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // If authentication succeeds, generate JWT
+    const token = generateToken(user);
+
+    // Return basic details and JWT
+    return res.status(200).json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt
+      },
+      token
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`);
 });
